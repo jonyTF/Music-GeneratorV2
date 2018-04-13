@@ -4,7 +4,7 @@
         <style>
             .content {
                 text-align: center;
-                font-size: 20px
+                font-size: 20px;
             }
         
             .rhythmDisplay {
@@ -12,10 +12,7 @@
                 display: inline-block;
                 height: 4em;
                 margin-top: 20%;
-                padding-left: 0.25em;
-                padding-right: 0.25em;
-                padding-top: 0.5em;
-                padding-bottom: 0.5em;
+                padding: .5em;
                 position: relative;
                 text-align: center;
             }
@@ -27,20 +24,17 @@
                 position: absolute;
                 top: .5em; 
                 bottom: .5em;
-                left: .25em;
-                width: .5em;
+                left: .4em;
+                width: .2em;
                 z-index: 1;
             }
             
-            .measure {
+            .measures {
                 background-color: #DDD;
                 display: inline-block;
                 height: 100%;
-                margin-left: 0.25em;
-                margin-right: 0.25em;
                 padding: 0;
                 position: relative;
-                width: 8em;
             }
             
             .beatLine {
@@ -59,6 +53,7 @@
             </div>
             
             <button id="start" style="display:block; margin: 0 auto;">Start!</button>
+            <button id="stop" style="display:inline;">Stop!</button>
             
             <div id="press" style="margin: 15px; background-color: #00F">
                 content
@@ -74,14 +69,23 @@
             $(document).ready(function() {
                 var keys = {};
                 var measures = 4;
+                var measuresWidth = measures*8;
                 var bpm = 120;
                 var timeSigTop = 4;
                 var timeSigBot = 4;
-                var storeNoteWait = 60*1000 / (bpm*128); // (60 sec/min * 1000 ms/sec) / (bpm beats/min * 128 ticks/beat) Amount of time to wait before running the storeNote func again.
+                var msPerBeat = 60*1000 / bpm;
+                var beatWidth = measuresWidth / (measures*timeSigTop); // Width of 1 beat in em.
+                
+                // TODO(Jony) : Make storeNoteWait work with different time signatures
+                var storeNoteWait = msPerBeat / 128; // (60 sec/min * 1000 ms/sec) / (bpm beats/min * 128 ticks/beat) Amount of time to wait before running the storeNote func again.
                 var storeNoteInterval;
                 var noteLength = 0;
                 
-                var storeNote = function() {
+                var cursorMoveWait = 1000/30; // Cursor will move @ 30fps, which is every 1000/30 ms.
+                var cursorMoveDist = cursorMoveWait*beatWidth / msPerBeat; // Amount to move the cursor every (cursorMoveWait) ms, measured in em.
+                var cursorMoveInterval;
+                
+                function storeNote() {
                     noteLength++;
                     $("#count").html(" quarter notes passed: " + parseInt(noteLength/128 + 1) + " note length: " + noteLength);
                     
@@ -89,6 +93,17 @@
                     if (Object.keys(keys).length == 0) {
                         clearInterval(storeNoteInterval);
                         storeNoteInterval = 0;
+                    }
+                }
+                
+                function cursorMove() {
+                    let oldPos = parseFloat($(".cursor").css("left")) / parseFloat($(".content").css("font-size"));
+                    let newPos = oldPos+cursorMoveDist;
+                    $(".cursor").css("left", newPos + "em");
+                    
+                    let rightPos = parseFloat($(".cursor").css("right")) / parseFloat($(".content").css("font-size"));
+                    if (rightPos < .4) {
+                        $(".cursor").css("left", ".4em");
                     }
                 }
             
@@ -122,17 +137,25 @@
                 });
                 
                 $("#start").click(function(event) {
-                    
+                    clearInterval(cursorMoveInterval);
+                    cursorMoveInterval = setInterval(cursorMove, cursorMoveWait);
+                });
+                
+                $("#stop").click(function(event) {
+                    clearInterval(cursorMoveInterval);
+                    $(".cursor").css("left", "0.4em");
                 });
                 
                 // TODO(Jony) : Add more measures when measures is updated.
-                for (let i = 0; i < measures; i++) {
-                    let $measure = $('<div class="measure" data-measure-num="' + parseInt(i+1) + '"></div>');
-                    $(".rhythmDisplay").append($measure);
-                }
+                $(".rhythmDisplay").append('<div class="measures" style="width: ' + measuresWidth + 'em"></div>');
                 
-                for (let i = 0; i < timeSigTop; i++) {
-                    $(".measure").append('<div class="beatLine" style="left:' + parseInt(i*100/timeSigTop) + '%"></div>');
+                for (let i = 0; i < timeSigTop*measures; i++) {
+                    let $beatLine = $('<div class="beatLine" style="left:' + parseInt(i*100/(timeSigTop*measures)) + '%"></div>');
+                    if (i % timeSigTop == 0) {
+                        $beatLine.css("background-color", "#AAA");
+                    }
+                    
+                    $(".measures").append($beatLine);
                 }
             });
             
