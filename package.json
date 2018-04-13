@@ -1,0 +1,14 @@
+{
+  "name": "music-generator-server",
+  "version": "0.0.1",
+  "description": "Server for Music Generator V2",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "JonyTF",
+  "license": "ISC",
+  "dependencies": {
+    "jsmidgen": "^0.1.5"
+  }
+}

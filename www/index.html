@@ -1,0 +1,141 @@
+<html>
+    <head>
+        <title>Music Generator</title>
+        <style>
+            .content {
+                text-align: center;
+                font-size: 20px
+            }
+        
+            .rhythmDisplay {
+                background-color: #AAA;
+                display: inline-block;
+                height: 4em;
+                margin-top: 20%;
+                padding-left: 0.25em;
+                padding-right: 0.25em;
+                padding-top: 0.5em;
+                padding-bottom: 0.5em;
+                position: relative;
+                text-align: center;
+            }
+            
+            .cursor {
+                background-color: #FBFF82;
+                margin: 0;
+                opacity: 0.5;
+                position: absolute;
+                top: .5em; 
+                bottom: .5em;
+                left: .25em;
+                width: .5em;
+                z-index: 1;
+            }
+            
+            .measure {
+                background-color: #DDD;
+                display: inline-block;
+                height: 100%;
+                margin-left: 0.25em;
+                margin-right: 0.25em;
+                padding: 0;
+                position: relative;
+                width: 8em;
+            }
+            
+            .beatLine {
+                background-color: #FFF;
+                position: absolute;
+                top: 0; bottom: 0;
+                width: 0.1em;
+            }
+        </style>
+    </head>
+    
+    <body>
+        <div class="content">
+            <div class="rhythmDisplay">
+                <div class="cursor"></div>
+            </div>
+            
+            <button id="start" style="display:block; margin: 0 auto;">Start!</button>
+            
+            <div id="press" style="margin: 15px; background-color: #00F">
+                content
+            </div>
+            <p id="count"></p>
+        </div>
+            
+        <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+        <script>
+            // TODO(Jony) : Fix the storeNoteInterval running slightly slower than it should. This happens because storeNoteWait is a float and setInterval turns this into an int. Maybe look at Music-GeneratorV1 to see how I did it there.
+            // TODO(Jony) : When measures or bpm is changed, update the storeNoteWait and change the graphical display of how many measures there are.
+            // TODO(Jony) : This HTML file will be hosted on github.io, and it will just simply make a request to a server running on heroku to send over a midi file for the user to download. DO NOT host this HTML on heroku, so as to keep with the illusion that the webpage loads quickly. Instead, when the webpage is loaded, wake up the heroku server.
+            $(document).ready(function() {
+                var keys = {};
+                var measures = 4;
+                var bpm = 120;
+                var timeSigTop = 4;
+                var timeSigBot = 4;
+                var storeNoteWait = 60*1000 / (bpm*128); // (60 sec/min * 1000 ms/sec) / (bpm beats/min * 128 ticks/beat) Amount of time to wait before running the storeNote func again.
+                var storeNoteInterval;
+                var noteLength = 0;
+                
+                var storeNote = function() {
+                    noteLength++;
+                    $("#count").html(" quarter notes passed: " + parseInt(noteLength/128 + 1) + " note length: " + noteLength);
+                    
+                    // If all keys have been released. 
+                    if (Object.keys(keys).length == 0) {
+                        clearInterval(storeNoteInterval);
+                        storeNoteInterval = 0;
+                    }
+                }
+            
+            
+                $("body").keydown(function(event) {
+                    // If a letter is pressed or space is pressed.
+                    if (event.keyCode == 32 || (event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 97 && event.keyCode <= 122)) {
+                        $("#press").css("background-color", "#F00");
+                        
+                        // Run the interval only if the key is not already down.
+                        if (keys[event.keyCode] == undefined) {
+                            noteLength = 0;
+                            clearInterval(storeNoteInterval);
+                            storeNoteInterval = setInterval(storeNote, storeNoteWait);
+                        }
+                        
+                        keys[event.keyCode] = true;
+                    } else if (event.keyCode == 9) {
+                        // If tab is pressed, clear the interval.
+                        clearInterval(storeNoteInterval);
+                        keys = {};
+                    }
+                });
+                
+                $("body").keyup(function(event) {
+                    // If a letter is released or space is released.
+                    if (event.keyCode == 32 || (event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 97 && event.keyCode <= 122)) {
+                        $("#press").css("background-color", "#00F");
+                        delete keys[event.keyCode];
+                    }
+                });
+                
+                $("#start").click(function(event) {
+                    
+                });
+                
+                // TODO(Jony) : Add more measures when measures is updated.
+                for (let i = 0; i < measures; i++) {
+                    let $measure = $('<div class="measure" data-measure-num="' + parseInt(i+1) + '"></div>');
+                    $(".rhythmDisplay").append($measure);
+                }
+                
+                for (let i = 0; i < timeSigTop; i++) {
+                    $(".measure").append('<div class="beatLine" style="left:' + parseInt(i*100/timeSigTop) + '%"></div>');
+                }
+            });
+            
+        </script>
+    </body>
+</html>
