@@ -66,98 +66,127 @@
             // TODO(Jony) : Fix the storeNoteInterval running slightly slower than it should. This happens because storeNoteWait is a float and setInterval turns this into an int. Maybe look at Music-GeneratorV1 to see how I did it there.
             // TODO(Jony) : When measures or bpm is changed, update the storeNoteWait and change the graphical display of how many measures there are.
             // TODO(Jony) : This HTML file will be hosted on github.io, and it will just simply make a request to a server running on heroku to send over a midi file for the user to download. DO NOT host this HTML on heroku, so as to keep with the illusion that the webpage loads quickly. Instead, when the webpage is loaded, wake up the heroku server.
-            $(document).ready(function() {
-                var keys = {};
-                var measures = 4;
-                var measuresWidth = measures*8;
-                var bpm = 120;
-                var timeSigTop = 4;
-                var timeSigBot = 4;
-                var msPerBeat = 60*1000 / bpm;
-                var beatWidth = measuresWidth / (measures*timeSigTop); // Width of 1 beat in em.
+            var keys = {};
+            var notes = []; // 2D array of notes: [ {"start": startTime, "end": endTime}, ... ].
+            var measures = 4;
+            var measuresWidth = measures*8;
+            var bpm = 120;
+            var timeSigTop = 4;
+            var timeSigBot = 4;
+            var msPerBeat = 60*1000 / bpm;
+            var beatWidth = measuresWidth / (measures*timeSigTop); // Width of 1 beat in em.
+            
+            // TODO(Jony) : Make storeNoteWait work with different time signatures.
+            var storeNoteWait = msPerBeat / 128; // (60 sec/min * 1000 ms/sec) / (bpm beats/min * 128 ticks/beat) Amount of time to wait before running the storeNote func again.
+            var storeNoteInterval = 0;
+            var noteStartTime = 0;
+            var noteLength = 0;
+            
+            var cursorMoveWait = 1000/30; // Cursor will move @ 30fps, which is every 1000/30 ms.
+            var cursorMoveDist = cursorMoveWait*beatWidth / msPerBeat; // Amount to move the cursor every (cursorMoveWait) ms, measured in em.
+            var cursorMoveInterval = 0;
+            
+            function storeNote() {
+                noteLength++;
+                $("#count").html(" quarter notes passed: " + parseInt(noteLength/128 + 1) + " note length: " + noteLength);
+                //console.log(keys);
+                // If all keys have been released. 
+                if (Object.keys(keys).length == 0) {
+                    clearInterval(storeNoteInterval);
+                    storeNoteInterval = 0;
+                    noteDone();
+                }
+            }
+            
+            function getCursorLeftPos() {
+                return parseFloat($(".cursor").css("left")) / parseFloat($(".content").css("font-size"));
+            }
+            
+            function getCursorRightPos() {
+                return parseFloat($(".cursor").css("right")) / parseFloat($(".content").css("font-size"));
+            }
+            
+            function cursorMove() {
+                let oldPos = getCursorLeftPos();
+                let newPos = oldPos+cursorMoveDist;
+                $(".cursor").css("left", newPos + "em");
                 
-                // TODO(Jony) : Make storeNoteWait work with different time signatures
-                var storeNoteWait = msPerBeat / 128; // (60 sec/min * 1000 ms/sec) / (bpm beats/min * 128 ticks/beat) Amount of time to wait before running the storeNote func again.
-                var storeNoteInterval;
-                var noteLength = 0;
-                
-                var cursorMoveWait = 1000/30; // Cursor will move @ 30fps, which is every 1000/30 ms.
-                var cursorMoveDist = cursorMoveWait*beatWidth / msPerBeat; // Amount to move the cursor every (cursorMoveWait) ms, measured in em.
-                var cursorMoveInterval;
-                
-                function storeNote() {
-                    noteLength++;
-                    $("#count").html(" quarter notes passed: " + parseInt(noteLength/128 + 1) + " note length: " + noteLength);
-                    
-                    // If all keys have been released. 
-                    if (Object.keys(keys).length == 0) {
+                let rightPos = getCursorRightPos();
+                if (rightPos < .4) {
+                    $(".cursor").css("left", ".4em");
+                    if (storeNoteInterval != 0) {
                         clearInterval(storeNoteInterval);
                         storeNoteInterval = 0;
+                        keys = {};
+                        // NOTE: The reason why keys stays full evn after it is set to {} is because the keydown callback fills it if it sees that it is empty.
+                        console.log(storeNoteInterval, keys);
+                        noteDone();
                     }
                 }
-                
-                function cursorMove() {
-                    let oldPos = parseFloat($(".cursor").css("left")) / parseFloat($(".content").css("font-size"));
-                    let newPos = oldPos+cursorMoveDist;
-                    $(".cursor").css("left", newPos + "em");
+            }
+            
+            function noteDone() {
+                let noteEndTime = getCursorLeftPos();
+                notes.push({"start": noteStartTime, "end": noteEndTime});
+                console.log(notes);
+            }
+        
+            $("body").keydown(function(event) {
+                // If a letter is pressed or space is pressed.
+                if (event.keyCode == 32 || (event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 97 && event.keyCode <= 122)) {
+                    $("#press").css("background-color", "#F00");
                     
-                    let rightPos = parseFloat($(".cursor").css("right")) / parseFloat($(".content").css("font-size"));
-                    if (rightPos < .4) {
-                        $(".cursor").css("left", ".4em");
-                    }
-                }
-            
-            
-                $("body").keydown(function(event) {
-                    // If a letter is pressed or space is pressed.
-                    if (event.keyCode == 32 || (event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 97 && event.keyCode <= 122)) {
-                        $("#press").css("background-color", "#F00");
-                        
-                        // Run the interval only if the key is not already down.
+                    // Run the interval only if the key is not already down and the cursor is moving.
+                    if (cursorMoveInterval != 0) {
                         if (keys[event.keyCode] == undefined) {
+                            if (storeNoteInterval != 0) {
+                                clearInterval(storeNoteInterval);
+                                noteDone();
+                            }
                             noteLength = 0;
-                            clearInterval(storeNoteInterval);
+                            noteStartTime = getCursorLeftPos();
                             storeNoteInterval = setInterval(storeNote, storeNoteWait);
                         }
-                        
-                        keys[event.keyCode] = true;
-                    } else if (event.keyCode == 9) {
-                        // If tab is pressed, clear the interval.
-                        clearInterval(storeNoteInterval);
-                        keys = {};
-                    }
-                });
-                
-                $("body").keyup(function(event) {
-                    // If a letter is released or space is released.
-                    if (event.keyCode == 32 || (event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 97 && event.keyCode <= 122)) {
-                        $("#press").css("background-color", "#00F");
-                        delete keys[event.keyCode];
-                    }
-                });
-                
-                $("#start").click(function(event) {
-                    clearInterval(cursorMoveInterval);
-                    cursorMoveInterval = setInterval(cursorMove, cursorMoveWait);
-                });
-                
-                $("#stop").click(function(event) {
-                    clearInterval(cursorMoveInterval);
-                    $(".cursor").css("left", "0.4em");
-                });
-                
-                // TODO(Jony) : Add more measures when measures is updated.
-                $(".rhythmDisplay").append('<div class="measures" style="width: ' + measuresWidth + 'em"></div>');
-                
-                for (let i = 0; i < timeSigTop*measures; i++) {
-                    let $beatLine = $('<div class="beatLine" style="left:' + parseInt(i*100/(timeSigTop*measures)) + '%"></div>');
-                    if (i % timeSigTop == 0) {
-                        $beatLine.css("background-color", "#AAA");
                     }
                     
-                    $(".measures").append($beatLine);
+                    keys[event.keyCode] = true;
+                } else if (event.keyCode == 9) {
+                    // If tab is pressed, clear the interval.
+                    clearInterval(storeNoteInterval);
+                    keys = {};
                 }
             });
+            
+            $("body").keyup(function(event) {
+                // If a letter is released or space is released.
+                if (event.keyCode == 32 || (event.keyCode >= 65 && event.keyCode <= 90) || (event.keyCode >= 97 && event.keyCode <= 122)) {
+                    $("#press").css("background-color", "#00F");
+                    delete keys[event.keyCode];
+                }
+            });
+            
+            $("#start").click(function(event) {
+                clearInterval(cursorMoveInterval);
+                cursorMoveInterval = setInterval(cursorMove, cursorMoveWait);
+            });
+            
+            $("#stop").click(function(event) {
+                clearInterval(cursorMoveInterval);
+                cursorMoveInterval = 0;
+                $(".cursor").css("left", "0.4em");
+            });
+            
+            // TODO(Jony) : Add more measures when measures is updated.
+            $(".rhythmDisplay").append('<div class="measures" style="width: ' + measuresWidth + 'em"></div>');
+            
+            for (let i = 0; i < timeSigTop*measures; i++) {
+                let $beatLine = $('<div class="beatLine" style="left:' + parseInt(i*100/(timeSigTop*measures)) + '%"></div>');
+                if (i % timeSigTop == 0) {
+                    $beatLine.css("background-color", "#AAA");
+                }
+                
+                $(".measures").append($beatLine);
+            }
             
         </script>
     </body>
